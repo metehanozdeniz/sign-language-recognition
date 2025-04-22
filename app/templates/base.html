@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" , data-bs-theme="dark">
+
+<head>
+  <title>Sign Language Recognition System</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.bootstrap5.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/buttons.bootstrap5.css') }}">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Box icons -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/boxicons.min.css') }}">
+  <link rel='stylesheet' href='https://unpkg.com/boxicons@2.1.1/css/boxicons.min.css'>
+</head>
+
+<body class="dark">
+  <nav class="sidebar">
+    <header>
+      <div class="image-text">
+        <span class="image">
+          <img src="{{ url_for('static', filename='img/logo.png')}}" alt="logo">
+        </span>
+
+        <div class="text logo-text">
+          <span class="name">Sign Language</span>
+          <span class="profession">Recognition App</span>
+        </div>
+      </div>
+
+      <i class='bx bx-chevron-right toggle'></i>
+    </header>
+
+    <div class="menu-bar">
+      <div class="menu">
+
+        <li class="search-box">
+          <i class='bx bx-search icon'></i>
+          <input type="text" placeholder="Search...">
+        </li>
+
+        <ul class="menu-links">
+          <!-- Dashboard -->
+          <li class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+            <a href="{{ url_for('index') }}">
+              <i class='bx bx-home-alt icon'></i>
+              <span class="text nav-text">Dashboard</span>
+            </a>
+          </li>
+
+          <!-- Letter Level -->
+          <li class="nav-link {% if request.endpoint == 'create_dataset' %}active{% endif %}">
+            <a href="{{ url_for('create_dataset') }}">
+              <i class='bx bx-add-to-queue icon'></i>
+              <span class="text nav-text">Letter Level</span>
+            </a>
+          </li>
+          
+          <!-- Word Level -->
+          <li class="nav-link {% if request.endpoint in ['record_page', 'gallery'] %}active{% endif %}">
+            <a href="#wordDatasetCollapse"
+              data-bs-toggle="collapse"
+              role="button"
+              aria-expanded="{% if request.endpoint in ['record_page', 'gallery'] %}true{% else %}false{% endif %}"
+              aria-controls="wordDatasetCollapse">
+              <i class='bx bxs-add-to-queue icon'></i>
+              <span class="text nav-text">Word Level</span>
+            </a>
+          </li>
+          <div class="collapse {% if request.endpoint in ['record_page', 'gallery'] %}show{% endif %}" id="wordDatasetCollapse">
+            <ul class="nav flex-column ms-3">
+              <li class="nav-link {% if request.endpoint == 'record_page' %}active{% endif %}">
+                <a href="{{ url_for('record_page') }}">
+                  <i class='bx bx-video icon'></i>
+                  <span class="text nav-text">Record</span>
+                </a>
+              </li>
+              <li class = "nav-link {% if request.endpoint == 'import_page' %}active{% endif %}">
+                <a href="{{ url_for('import_page') }}">
+                  <i class='bx bx-import icon'></i>
+                  <span class="text nav-text">Import</span>
+                </a>
+              </li>
+              <li class="nav-link {% if request.endpoint == 'gallery' %}active{% endif %}">
+                <a href="{{ url_for('gallery') }}">
+                  <i class='bx bx-grid-alt icon'></i>
+                  <span class="text nav-text">Gallery</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Other Links -->
+          <!-- <li class="nav-link">
+            <a href="#">
+              <i class='bx bx-pie-chart-alt icon'></i>
+              <span class="text nav-text">Analytics</span>
+            </a>
+          </li>
+
+          <li class="nav-link">
+            <a href="#">
+              <i class='bx bx-heart icon'></i>
+              <span class="text nav-text">Likes</span>
+            </a>
+          </li>
+
+          <li class="nav-link">
+            <a href="#">
+              <i class='bx bx-wallet icon'></i>
+              <span class="text nav-text">Wallets</span>
+            </a>
+          </li> -->
+
+        </ul>
+      </div>
+
+      <div class="bottom-content">
+        <li class="">
+          <a href="#">
+            <i class='bx bx-log-out icon'></i>
+            <span class="text nav-text">Logout</span>
+          </a>
+        </li>
+
+        <li class="mode">
+          <div class="sun-moon">
+            <i class='bx bx-moon icon moon'></i>
+            <i class='bx bx-sun icon sun'></i>
+          </div>
+          <span class="mode-text text">Light Mode</span>
+
+          <div class="toggle-switch">
+            <span class="switch"></span>
+          </div>
+        </li>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page content -->
+  <section class="home">
+    <div class="col-12 col-md-9 col-lg-10">
+      <div class="container py-3">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </section>
+
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  {% block extra_scripts %}
+  <!-- jQuery ve DataTables libraries -->
+  <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+  <script src="https://cdn.datatables.net/2.2.2/js/dataTables.js"></script>
+  <script src="https://cdn.datatables.net/2.2.2/js/dataTables.bootstrap5.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.2.2/js/dataTables.buttons.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.bootstrap5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.html5.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.print.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.colVis.min.js"></script>
+  <script src="{{ url_for('static', filename='js/chartjs.min.js') }}"></script>
+  <script>
+    $(document).ready(function () {
+      $('#csvTable').DataTable({
+        // DataTables settings
+        "scrollX": true,  // horizontal scrolling enabled
+        layout: {
+          topStart: {
+            buttons: ['copy', 'excel', 'pdf', 'print', 'csv', 'colvis']
+          }
+        }
+      });
+    });
+  </script>
+  {% endblock %}
+</body>
+
+</html>

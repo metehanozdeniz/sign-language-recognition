@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<header>
+    <h1 class="text-white">Video Import</h1>
+    <p class="text-white">Create Dataset for Word Level</p>
+</header>
+<!-- Alert area for notifications -->
+<div id="alert-area"></div>
+<form id="importForm">
+    <div class="mb-3">
+      <label for="import_label" class="form-label">Label</label>
+      <input type="text" class="form-control" id="import_label" name="label" placeholder="Enter label">
+    </div>
+    <div class="mb-3">
+      <label for="videoFile" class="form-label">Select Video File</label>
+      <input type="file" class="form-control" id="videoFile" name="video" accept="video/*">
+    </div>
+    <div class="form-check form-switch mb-3">
+      <input class="form-check-input" type="checkbox" id="mirrorSwitch" checked>
+      <label class="form-check-label" for="mirrorSwitch">Enable Mirror Augmentation</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Extract</button>
+  </form>
+  
+  <!-- Progress Bar -->
+  <div id="progressContainer" class="progress my-3" style="display: none;">
+    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%;">0%</div>
+  </div>
+  {% endblock %}
+  
+  {% block extra_scripts %}
+  <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+  <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/import.js') }}"></script>
+  {% endblock %}
