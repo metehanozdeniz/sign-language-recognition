@@ -70,7 +70,7 @@
               <span class="text nav-text">Word Level</span>
             </a>
           </li>
-          <div class="collapse {% if request.endpoint in ['record_page', 'gallery'] %}show{% endif %}" id="wordDatasetCollapse">
+          <div class="collapse {% if request.endpoint in ['record_page', 'import_page', 'gallery'] %}show{% endif %}" id="wordDatasetCollapse">
             <ul class="nav flex-column ms-3">
               <li class="nav-link {% if request.endpoint == 'record_page' %}active{% endif %}">
                 <a href="{{ url_for('record_page') }}">
