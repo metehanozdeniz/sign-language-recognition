@@ -8,7 +8,7 @@ from app.utils.feature_extraction import save_video_features
 
 
 @celery.task(bind=True)
-def process_video_landmarks(self, video_id, mirror=True):
+def process_video_landmarks(self, video_id, mirror=True, start_time=0.0, end_time=None):
     """
     video_id ile Video kaydını bulur, path üzerinden kare kare landmark çıkarır.
     Orijinal ve isteğe bağlı "mirror" (aynalanmış) veriyi işler.
@@ -25,6 +25,8 @@ def process_video_landmarks(self, video_id, mirror=True):
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0  # default fps
     desired_fps = 15.0
     frame_skip = max(1, round(fps / desired_fps))  # frame skip rate
+
+    # Total frame count
     raw_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
     # frame count
@@ -35,7 +37,7 @@ def process_video_landmarks(self, video_id, mirror=True):
     except:
         # Fallback: manually count frames
         total_frames = 0
-        while True:
+        while cap.read()[0]:
             ret, _ = cap.read()
             if not ret:
                 break
@@ -48,11 +50,34 @@ def process_video_landmarks(self, video_id, mirror=True):
     video.duration = float(duration)
     db.session.commit()
 
+    # Set start_time and end_time
+    if start_time < 0:
+        start_time = 0
+    if end_time is not None and end_time < 0:
+        end_time = 0
+    if end_time is not None and end_time > duration:
+        end_time = duration
+    if end_time is None:
+        end_time = duration
+    if start_time >= end_time:
+        return {
+            "status": "error",
+            "message": "Start time must be less than end time.",
+        }
+    if start_time == end_time:
+        return {
+            "status": "error",
+            "message": "Start time and end time must be different.",
+        }
+    start_frame = int(start_time * fps)
+    end_frame = int(end_time * fps) if end_time else total_frames
+    end_frame = min(end_frame, total_frames)
+
     # Determine total work steps
+    window_duration = (end_frame - start_frame) / fps
     # Each frame is skipped one step, mirror=True is double the steps.
-    processed_frames = (total_frames // frame_skip) + (
-        1 if total_frames % frame_skip else 0
-    )
+    processed_frames = int(window_duration * desired_fps)
+    # If mirror is enabled, double the steps
     total_steps = processed_frames * (2 if mirror else 1)
     step = 0
 
@@ -84,8 +109,10 @@ def process_video_landmarks(self, video_id, mirror=True):
         """
         if current_frame % frame_skip != 0:
             continue
+        if current_frame < start_frame or current_frame > end_frame:
+            continue
 
-        # ===== Process oroginal frame =====
+        # ===== Process original frame =====
         step += 1
         # Report progress
         self.update_state(
@@ -181,7 +208,7 @@ def process_video_landmarks(self, video_id, mirror=True):
         if current_frame % 50 == 0:
             db.session.commit()
 
-    # loop is finish, commit the remaining records and close the resources
+    # Commit last batch
     db.session.commit()
     cap.release()
     mp_hands.close()

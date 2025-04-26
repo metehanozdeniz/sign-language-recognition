@@ -126,6 +126,7 @@ def import_video():
     label = request.form.get("label", "").strip()
     if not label:
         return jsonify({"status": "error", "message": "Label is required."}), 400
+
     video_file = request.files.get("video")
     if not video_file:
         return jsonify({"status": "error", "message": "No video file uploaded."}), 400
@@ -133,15 +134,22 @@ def import_video():
     # reuse helper to save file & DB record
     video = _save_video_file(label, video_file)
 
+    # video path
+    rel_path = os.path.relpath(video.path, os.path.join(app.root_path, "videos"))
+    video_url = url_for("serve_video", filename=rel_path)
+
     # mirror setting
     mirror = request.form.get("mirror", "true").lower() == "true"
     task = process_video_landmarks.apply_async(
         args=[video.id], kwargs={"mirror": mirror}
     )
+
     return jsonify(
         {
             "status": "success",
             "message": "Import started.",
+            "video_id": video.id,
+            "video_url": video_url,
             "task_id": task.id,
         }
     )
@@ -159,12 +167,15 @@ def save_video():
 
     video = _save_video_file(label, video_file)
 
+    rel_path = os.path.relpath(video.path, os.path.join(app.root_path, "videos"))
+    video_url = url_for("serve_video", filename=rel_path)
+
     return jsonify(
         {
             "status": "success",
             "message": "Video saved successfully.",
             "video_id": video.id,
-            "path": video.path,
+            "path": video_url,
         }
     )
 
@@ -212,16 +223,38 @@ def process_video():
     AJAX ile çağrılan endpoint: video_id alıp arka planda Celery task'ını başlatır.
     """
     video_id = request.form.get("video_id", type=int)
-    # mirror switch’den gelen değer string “true”/“false”
+    # get mirror value from form (default: true)
     mirror = request.form.get("mirror", "true").lower() == "true"
+    # get start_time and end_time from form
+    start_time = request.form.get("start_time", type=float, default=0.0)
+    end_time = request.form.get("end_time", type=float, default=0.0)
+
+    if start_time >= end_time:
+        return jsonify(
+            {"status": "error", "message": "Start time must be less than end time."}
+        ), 400
+    if start_time < 0 or end_time < 0:
+        return jsonify(
+            {"status": "error", "message": "Start and end time must be positive."}
+        ), 400
+    if start_time == end_time:
+        return jsonify(
+            {"status": "error", "message": "Start time and end time must be different."}
+        ), 400
 
     video = Video.query.get(video_id)
     if not video:
         return jsonify({"status": "error", "message": "Video not found."}), 404
 
-    # Celery görevini başlat, video_id ve mirror değerlerini gönder
+    # start the Celery task and send video_id and mirror value
+    # to the task
     task = process_video_landmarks.apply_async(
-        args=[video_id], kwargs={"mirror": mirror}
+        args=[video_id],
+        kwargs={
+            "mirror": mirror,
+            "start_time": start_time,
+            "end_time": end_time,
+        },
     )
     return jsonify(
         {

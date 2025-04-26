@@ -7,25 +7,55 @@
 <!-- Alert area for notifications -->
 <div id="alert-area"></div>
 <form id="importForm">
-    <div class="mb-3">
-      <label for="import_label" class="form-label">Label</label>
-      <input type="text" class="form-control" id="import_label" name="label" placeholder="Enter label">
-    </div>
-    <div class="mb-3">
-      <label for="videoFile" class="form-label">Select Video File</label>
-      <input type="file" class="form-control" id="videoFile" name="video" accept="video/*">
-    </div>
-    <div class="form-check form-switch mb-3">
-      <input class="form-check-input" type="checkbox" id="mirrorSwitch" checked>
-      <label class="form-check-label" for="mirrorSwitch">Enable Mirror Augmentation</label>
-    </div>
-    <button type="submit" class="btn btn-primary">Extract</button>
-  </form>
-  
-  <!-- Progress Bar -->
-  <div id="progressContainer" class="progress my-3" style="display: none;">
-    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%;">0%</div>
+  <div class="mb-3">
+    <label for="import_label" class="form-label">Label</label>
+    <input type="text" class="form-control" id="import_label" name="label" placeholder="Enter label">
   </div>
+  <div class="mb-3">
+    <label for="videoFile" class="form-label">Select Video File</label>
+    <input type="file" class="form-control" id="videoFile" name="video" accept="video/*">
+  </div>
+  <button type="submit" class="btn btn-primary">Upload & Preview</button>
+</form>
+  
+<!-- Progress Bar -->
+<div id="progressContainer" class="progress my-3" style="display: none;">
+  <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%;">0%</div>
+</div>
+
+<!-- Preview + Segment Selection Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Imported Video Preview</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <video id="modalVideo" class="w-100 mb-3" controls></video>
+        <div class="row g-2 mb-3">
+          <div class="col" id="startTimeContainer">
+            <label for="modalStartTime" class="form-label">Start Time (s)</label>
+            <input type="number" id="modalStartTime" class="form-control" step="0.1" min="0">
+          </div>
+          <div class="col" id="endTimeContainer">
+            <label for="modalEndTime" class="form-label">End Time (s)</label>
+            <input type="number" id="modalEndTime" class="form-control" step="0.1" min="0">
+          </div>
+        </div>
+        <div class="form-check form-switch mb-3" id="mirrorSwitchContainer">
+          <input class="form-check-input" type="checkbox" id="modalMirrorSwitch" checked>
+          <label class="form-check-label" for="modalMirrorSwitch">Enable Mirror Augmentation</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modalExtractBtn" type="button" class="btn btn-success">Extract</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+  
   {% endblock %}
   
   {% block extra_scripts %}
