@@ -18,5 +18,5 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # CELERY_BROKER_URL = "redis://localhost:6379/0"
-    CELERY_BROKER_URL = "rediss://:p94f5b8254a375717cceef3e88703d824469d08b8a5a8d2aa7e6b1f49efae6d79@ec2-54-236-127-237.compute-1.amazonaws.com:14320"
+    CELERY_BROKER_URL = "rediss://:p94f5b8254a375717cceef3e88703d824469d08b8a5a8d2aa7e6b1f49efae6d79@ec2-52-72-19-75.compute-1.amazonaws.com:6769"
     # CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
