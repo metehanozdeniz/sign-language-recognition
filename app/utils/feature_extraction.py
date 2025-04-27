@@ -5,7 +5,7 @@ from app.models import FrameLandmark, VideoFeature
 
 
 def load_landmarks_df(video_id):
-    """FrameLandmark tablosundan pandas DataFrame’e çevir."""
+    """Convert FrameLandmark table to DataFrame."""
     records = (
         db.session.query(FrameLandmark)
         .filter_by(video_id=video_id)
@@ -29,12 +29,11 @@ def load_landmarks_df(video_id):
 
 def extract_window_features(df, fps=15, window_sec=0.5):
     """
-    DataFrame’deki tüm landmark’ları, sabit süreli pencerelere böler
-    ve her pencere için özet istatistikler üretir.
+    It divides all landmarks in the DataFrame into fixed duration windows and produces summary statistics for each window.
     """
     window_size = int(fps * window_sec)
     features = []
-    finger_tips = [4, 8, 12, 16, 20]  # 4, 8, 12, 16, 20:el parmak uçları
+    finger_tips = [4, 8, 12, 16, 20]  # 4, 8, 12, 16, 20:hand fingertips
     pose_joints = [
         11,
         12,
@@ -42,7 +41,7 @@ def extract_window_features(df, fps=15, window_sec=0.5):
         14,
         15,
         16,
-    ]  # 11, 12, 13, 14, 15, 16: omuz, dirsek, bilek
+    ]  # 11, 12, 13, 14, 15, 16: shoulder, elbow, wrist
 
     max_frame = int(df["frame"].max())
     for start in range(1, max_frame + 1, window_size):
@@ -57,7 +56,7 @@ def extract_window_features(df, fps=15, window_sec=0.5):
             "end_frame": end,
         }
 
-        # El parmak uçları: mean/std
+        # hand fingertips: mean/std
         for hand_side, hand_label in [(0, "left"), (1, "right")]:
             tips = w[
                 (w.type == "hand") & (w.lm_id.isin(finger_tips)) & (w.hand == hand_side)
@@ -70,7 +69,7 @@ def extract_window_features(df, fps=15, window_sec=0.5):
                     float(tips[ax].std()) if not tips.empty else 0.0
                 )
 
-        # Pose omuz/kalça
+        # Pose shoulder, elbow, wrist: mean/std
         joints = w[(w.type == "pose") & (w.lm_id.isin(pose_joints))]
         for ax in ("x", "y", "z"):
             feat[f"joints_{ax}_mean"] = float(joints[ax].mean())
@@ -83,16 +82,23 @@ def extract_window_features(df, fps=15, window_sec=0.5):
 
 def save_video_features(video_id, fps=15, window_sec=0.5):
     """
-    load_landmarks_df → extract_window_features → VideoFeature tablosuna kaydet
+    load_landmarks_df → extract_window_features → save to db
+    Deletes old existing VideoFeature recordings, then adds new ones.
     """
+    try:
+        VideoFeature.query.filter_by(video_id=video_id).delete()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     df = load_landmarks_df(video_id)
     if df.empty:
         return 0
-    # Ekstra: df['video'] sütunu yoksa ekleyin:
+
+    # Extra: Add video_id to DataFrame
     df["video"] = video_id
     wdf = extract_window_features(df, fps, window_sec)
 
-    # Tabloya yaz
     count = 0
     for _, row in wdf.iterrows():
         vid = int(row.pop("video_id"))

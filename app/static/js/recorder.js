@@ -240,3 +240,103 @@ function ensureMimeType() {
     throw new Error("No supported MediaRecorder formats.");
   }
 }
+
+function deleteVideo(videoId) {
+  if (confirm('Are you sure you want to delete this video?')) {
+    fetch(`/delete_video/${videoId}`, { method: 'DELETE' })
+      .then(async res => {
+        try {
+          const text = await res.text();
+          const data = JSON.parse(text);
+          if (data.status === 'success') {
+            location.reload();
+          } else {
+            alert('Delete failed: ' + (data.message || 'Unknown error'));
+          }
+        } catch (e) {
+          // If response is not JSON, just reload
+          location.reload();
+        }
+      })
+      .catch(err => alert('Delete failed: ' + err));
+  }
+}
+
+function downloadVideo(videoUrl, filename) {
+  const a = document.createElement('a');
+  a.href = videoUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Updated to accept videoUrl and currentLabel alongside videoId
+function openEditModal(videoId, videoUrl, currentLabel) {
+  const modalHtml = `
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark text-white">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editModalLabel">Edit Video</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <video id="editModalVideo" class="w-100 mb-3" controls src="${videoUrl}"></video>
+            <form id="editForm">
+              <div class="mb-3">
+                <label for="editLabel" class="form-label">Label</label>
+                <input type="text" class="form-control" id="editLabel" value="${currentLabel}" required>
+              </div>
+              <div class="row g-2">
+                <div class="col">
+                  <label for="editStartTime" class="form-label">Start Time (s)</label>
+                  <input type="number" class="form-control" id="editStartTime" step="0.1" min="0" required>
+                </div>
+                <div class="col">
+                  <label for="editEndTime" class="form-label">End Time (s)</label>
+                  <input type="number" class="form-control" id="editEndTime" step="0.1" min="0" required>
+                </div>
+              </div>
+              <div class="form-check form-switch my-3">
+                <input class="form-check-input" type="checkbox" id="editMirrorSwitch" checked>
+                <label class="form-check-label" for="editMirrorSwitch">Enable Mirror Augmentation</label>
+              </div>
+              <button type="submit" class="btn btn-success">Save changes</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  const modalEl = document.getElementById('editModal');
+  const editModal = new bootstrap.Modal(modalEl);
+  editModal.show();
+
+  modalEl.querySelector('#editForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const newLabel = modalEl.querySelector('#editLabel').value.trim();
+    const start    = parseFloat(modalEl.querySelector('#editStartTime').value);
+    const end      = parseFloat(modalEl.querySelector('#editEndTime').value);
+    const mirror   = modalEl.querySelector('#editMirrorSwitch').checked;
+    if (!newLabel || start >= end || isNaN(start) || isNaN(end)) {
+      return showAlert('warning','Invalid input values.');
+    }
+    fetch('/edit_video',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ video_id: videoId, label: newLabel, start_time: start, end_time: end, mirror })
+    })
+      .then(r=>r.json())
+      .then(d=>{
+        if (d.status==='success') location.reload();
+        else showAlert('danger','Update failed: '+d.message);
+      })
+      .catch(err=>showAlert('danger','Update error: '+err));
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modalEl.remove();
+  });
+}
