@@ -1,7 +1,11 @@
-Flask
-Flask-SQLAlchemy
-opencv-python==4.7.0.72
-mediapipe==0.10.21
 celery==5.5.1
-redis==5.2.1
+Flask==3.1.0
+Flask-SQLAlchemy==3.1.1
+gunicorn==23.0.0
+mediapipe==0.10.21
+numpy==1.26.4
+opencv-python==4.11.0.86
 pandas==2.2.3
+redis==5.2.1
+requests==2.32.3
+SQLAlchemy==2.0.38
