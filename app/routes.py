@@ -13,7 +13,7 @@ from celery.result import AsyncResult
 
 import app.shared as shared  # shared modülünden global değişkene erişim sağlıyoruz.
 from app import app, db
-from app.dataset.create_dataset import gen_frames
+
 from app.utils.database_insertion import insert_landmark_record
 from app.models import Dataset, Video, FrameLandmark  # DB Models
 from app.tasks import process_video_landmarks, celery
@@ -179,6 +179,8 @@ def save_video():
 
 @app.route("/video_feed")
 def video_feed():
+    from app.dataset.create_dataset import gen_frames
+
     return Response(gen_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
