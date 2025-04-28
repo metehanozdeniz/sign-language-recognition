@@ -7,10 +7,11 @@ from flask import (
     jsonify,
     send_from_directory,
     url_for,
+    current_app as app,
 )
 from celery.result import AsyncResult
 
-from app import app, db
+from app import db
 from app.models import Video, FrameLandmark  # DB Models
 from app.tasks import process_video_landmarks, celery
 from app.config import VIDEO_DIR

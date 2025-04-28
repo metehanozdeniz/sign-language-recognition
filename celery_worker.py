@@ -1,9 +1,7 @@
-import sys, os
+from app import create_app, celery
 
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, PROJECT_ROOT)
-
-from app import celery
+app = create_app()
+celery.conf.update(app.config)
 
 if __name__ == "__main__":
     celery.start()

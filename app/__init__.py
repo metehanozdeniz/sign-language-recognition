@@ -1,31 +1,38 @@
-import sys, os
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
+import os
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 from app.config import Config
-
-app = Flask(__name__)
-app.config.from_object(Config)
-
-# Celery entegrasyonu: make_celery fonksiyonunu app/celery_utils.py'den içeri aktarıyoruz.
 from app.celery_utils import make_celery
 
-celery = make_celery(app)
+celery = make_celery()
 
-from flask_sqlalchemy import SQLAlchemy
 
-db = SQLAlchemy(app)
+# Flask app instance
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
 
-db_path = os.path.join(
-    os.path.abspath(os.path.dirname(__file__)), "sign-language-recognition.sqlite"
-)
+    # Initialize extensions
+    db.init_app(app)
+    celery.conf.update(
+        broker_url=app.config["CELERY_BROKER_URL"],
+        result_backend=app.config["CELERY_RESULT_BACKEND"],
+    )
 
-if not os.path.exists(db_path):
+    # Ensure the database exists
+    db_path = os.path.join(app.root_path, "sign-language-recognition.sqlite")
+    if not os.path.exists(db_path):
+        with app.app_context():
+            db.create_all()
+            print("Database created.")
+    else:
+        print("Database exists.")
+
+    # Import parts of the app
     with app.app_context():
-        db.create_all()
-        print("Database created.")
-else:
-    print("Database exists.")
+        from app import routes, models, forms
 
-from app import routes, models, forms
+    return app
+
+
+db = SQLAlchemy()
