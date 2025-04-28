@@ -2,57 +2,6 @@ from datetime import datetime
 from app import db
 
 
-class Dataset(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    label = db.Column(db.String(50), nullable=False)
-    # Landmarks columns
-    landmark_0 = db.Column(db.Float, nullable=False)
-    landmark_1 = db.Column(db.Float, nullable=False)
-    landmark_2 = db.Column(db.Float, nullable=False)
-    landmark_3 = db.Column(db.Float, nullable=False)
-    landmark_4 = db.Column(db.Float, nullable=False)
-    landmark_5 = db.Column(db.Float, nullable=False)
-    landmark_6 = db.Column(db.Float, nullable=False)
-    landmark_7 = db.Column(db.Float, nullable=False)
-    landmark_8 = db.Column(db.Float, nullable=False)
-    landmark_9 = db.Column(db.Float, nullable=False)
-    landmark_10 = db.Column(db.Float, nullable=False)
-    landmark_11 = db.Column(db.Float, nullable=False)
-    landmark_12 = db.Column(db.Float, nullable=False)
-    landmark_13 = db.Column(db.Float, nullable=False)
-    landmark_14 = db.Column(db.Float, nullable=False)
-    landmark_15 = db.Column(db.Float, nullable=False)
-    landmark_16 = db.Column(db.Float, nullable=False)
-    landmark_17 = db.Column(db.Float, nullable=False)
-    landmark_18 = db.Column(db.Float, nullable=False)
-    landmark_19 = db.Column(db.Float, nullable=False)
-    landmark_20 = db.Column(db.Float, nullable=False)
-    landmark_21 = db.Column(db.Float, nullable=False)
-    landmark_22 = db.Column(db.Float, nullable=False)
-    landmark_23 = db.Column(db.Float, nullable=False)
-    landmark_24 = db.Column(db.Float, nullable=False)
-    landmark_25 = db.Column(db.Float, nullable=False)
-    landmark_26 = db.Column(db.Float, nullable=False)
-    landmark_27 = db.Column(db.Float, nullable=False)
-    landmark_28 = db.Column(db.Float, nullable=False)
-    landmark_29 = db.Column(db.Float, nullable=False)
-    landmark_30 = db.Column(db.Float, nullable=False)
-    landmark_31 = db.Column(db.Float, nullable=False)
-    landmark_32 = db.Column(db.Float, nullable=False)
-    landmark_33 = db.Column(db.Float, nullable=False)
-    landmark_34 = db.Column(db.Float, nullable=False)
-    landmark_35 = db.Column(db.Float, nullable=False)
-    landmark_36 = db.Column(db.Float, nullable=False)
-    landmark_37 = db.Column(db.Float, nullable=False)
-    landmark_38 = db.Column(db.Float, nullable=False)
-    landmark_39 = db.Column(db.Float, nullable=False)
-    landmark_40 = db.Column(db.Float, nullable=False)
-    landmark_41 = db.Column(db.Float, nullable=False)
-
-    def __repr__(self):
-        return f"<Dataset {self.label}>"
-
-
 class Video(db.Model):
     __tablename__ = "video"
     id = db.Column(db.Integer, primary_key=True)

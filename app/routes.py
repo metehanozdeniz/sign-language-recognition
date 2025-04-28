@@ -3,7 +3,6 @@ from datetime import datetime
 
 from flask import (
     render_template,
-    Response,
     request,
     jsonify,
     send_from_directory,
@@ -11,11 +10,8 @@ from flask import (
 )
 from celery.result import AsyncResult
 
-import app.shared as shared  # shared modülünden global değişkene erişim sağlıyoruz.
 from app import app, db
-
-from app.utils.database_insertion import insert_landmark_record
-from app.models import Dataset, Video, FrameLandmark  # DB Models
+from app.models import Video, FrameLandmark  # DB Models
 from app.tasks import process_video_landmarks, celery
 from app.config import VIDEO_DIR
 
@@ -42,51 +38,6 @@ def _save_video_file(label, video_file):
     db.session.add(video)
     db.session.commit()
     return video
-
-
-@app.route("/create-dataset", methods=["GET", "POST"])
-def create_dataset():
-    if request.method == "POST":
-        label = request.form.get("dataset_label", "").strip()
-        if label == "":
-            # print("POST alındı, label boş.") # Debug
-            return jsonify({"status": "error", "message": "Label can not be empty."})
-        # print("POST alındı, label:", label)  # Debug
-        if shared.last_landmark is None:
-            print("shared.last_landmark None, DB'ye yazılmadı.")
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "No data to save. Please try again.",
-                }
-            )
-        if len(shared.last_landmark) != 42:
-            print("shared.last_landmark 42 değil, DB'ye yazılmadı.")
-            return jsonify(
-                {"status": "error", "message": "Landmark data is incomplete."}
-            )
-
-        try:
-            insert_landmark_record(label, shared.last_landmark)
-        except exec as e:
-            return jsonify({"status": "error", "message": str(e)})
-
-        # logging_csv(label, shared.last_landmark)
-        return jsonify({"status": "success"})
-
-    # GET isteğinde normal şekilde render et
-    return render_template("create_dataset.html")
-
-
-@app.route("/get_db_data", methods=["GET"])
-def get_db_data():
-    records = Dataset.query.all()
-    data = []
-    for record in records:
-        row = [getattr(record, f"landmark_{i}") for i in range(42)]
-        row.insert(0, record.label)
-        data.append(row)
-    return jsonify(data)
 
 
 @app.route("/record", methods=["GET"])
@@ -175,13 +126,6 @@ def save_video():
             "path": video_url,
         }
     )
-
-
-@app.route("/video_feed")
-def video_feed():
-    from app.dataset.create_dataset import gen_frames
-
-    return Response(gen_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 # for submission of video files
