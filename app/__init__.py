@@ -16,7 +16,7 @@ def create_app():
     db.init_app(app)
     celery.conf.update(
         broker_url=app.config["CELERY_BROKER_URL"],
-        result_backend=app.config["CELERY_RESULT_BACKEND"],
+        # result_backend=app.config["CELERY_RESULT_BACKEND"],
     )
 
     # Ensure the database exists
