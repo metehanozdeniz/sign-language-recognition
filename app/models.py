@@ -40,5 +40,7 @@ class VideoFeature(db.Model):
     video_id = db.Column(db.Integer, db.ForeignKey("video.id"), nullable=False)
     feature_name = db.Column(db.Text, nullable=False)
     value = db.Column(db.Float, nullable=False)
+    start_frame = db.Column(db.Integer, nullable=True)
+    end_frame = db.Column(db.Integer, nullable=True)
 
     video = db.relationship("Video", back_populates="features")

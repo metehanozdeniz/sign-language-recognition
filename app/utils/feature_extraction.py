@@ -102,13 +102,20 @@ def save_video_features(video_id, fps=15, window_sec=0.5):
     count = 0
     for _, row in wdf.iterrows():
         vid = int(row.pop("video_id"))
-        # Her satırdaki tüm numeric öznitelikleri VideoFeature olarak ekleyin
+        start_frame = int(row.pop("start_frame"))
+        end_frame = int(row.pop("end_frame"))
+
         for key, val in row.items():
-            # start_frame/end_frame özniteliğini atlayabiliriz
-            if key in ("start_frame", "end_frame") or val is None or np.isnan(val):
+            if val is None or np.isnan(val):
                 continue
             db.session.add(
-                VideoFeature(video_id=vid, feature_name=key, value=float(val))
+                VideoFeature(
+                    video_id=vid,
+                    feature_name=key,
+                    value=float(val),
+                    start_frame=start_frame,
+                    end_frame=end_frame,
+                )
             )
         count += 1
     db.session.commit()
