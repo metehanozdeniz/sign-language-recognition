@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.webm
-*.sqlite
+**/*.sqlite
 .env
 .DS_Store
 .idea/
