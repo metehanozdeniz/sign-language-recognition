@@ -2,11 +2,11 @@
 
 A real-time sign language recognition system built with Flask, MediaPipe, and deep learning. The system can recognize `word-level` sign language gestures in real-time through a web interface, as well as manage a dataset of sign language videos for training.
 
-## Demo
+## 📸 Demo
 ![demo-gif](demo/demo.gif)  
 > Real-time webcam feed with live sign prediction.
 
-## Inference
+## ▶️ Inference
 ```bash
 python real_time_inference.py
 ```
@@ -22,7 +22,7 @@ python real_time_inference.py
 - **Training Pipeline**: Complete pipeline for training sign language recognition models
 - **LSTM-based prediction**: Using sliding windows
 
-## Features in Detail
+## 🔬 Features in Detail
 
 ### Real-time Recognition
 - Uses MediaPipe for hand and pose landmark detection
@@ -43,6 +43,45 @@ python real_time_inference.py
 - LSTM-based deep learning model
 - Performance visualization and evaluation tools
 
+## 🚀 How It Works
+
+### 🔹 Step 1: Capture Input
+- Uses webcam feed via OpenCV.
+- MediaPipe detects:
+  - **Pose landmarks:** shoulders, elbows, wrists (6 points)
+  - **Hand landmarks:** only **fingertips** (5 per hand)
+
+### 🔹 Step 2: Extract Features
+For each 0.5s window (~7–8 frames):
+- Calculates **mean** and **std** of X/Y/Z positions for:
+  - Left & right hand fingertips
+  - Upper body joints
+
+These features are stacked across 5 consecutive windows to form an LSTM input.
+
+### 🔹 Step 3: Predict Word
+- Preprocessed input is passed to an LSTM model.
+- Top-3 predictions are shown on screen in real-time.
+
+## 🔑 Tips for Better Recognition
+
+1. **Lighting**: Ensure good lighting conditions
+2. **Background**: Use a plain background for better landmark detection
+3. **Distance**: Stay at an appropriate distance from the camera
+4. **Movement**: Perform signs clearly and at a moderate speed
+5. **Framing**: Keep your hands and upper body visible in the frame
+
+## 🧠 Model Architecture
+
+The script uses:
+- `app/model/sign_language_recognition.keras`: LSTM model trained on sign language data
+  - **Input shape:** `(5, N)` where 5 = time steps, N = number of extracted features (e.g., 18–36)
+  - **Architecture:** LSTM + Dense layers
+  - **Output:** Softmax over sign vocabulary
+- `app/model/scaler.pkl`: StandardScaler for feature normalization
+- `app/model/label_encoder.pkl`: LabelEncoder for class labels
+- `app/model/feature_order.json`: Ensures features are in the correct order
+
 ## Tech Stack
 
 - **Backend**: Flask, Celery, Redis
@@ -51,45 +90,14 @@ python real_time_inference.py
 - **Machine Learning**: TensorFlow, scikit-learn
 - **Database**: SQLite with SQLAlchemy
 
-## How it Works
-1. **Frame Capture**: The script captures video from your default camera at approximately 15 FPS
-2. **Landmark Extraction**: MediaPipe extracts:
-   - Hand landmarks (focusing on fingertips: thumb, index, middle, ring, pinky)
-   - Pose landmarks (focusing on joints: shoulders, elbows, wrists)
-3. **Feature Extraction**: 
-   - Collects frames in 0.5-second windows (7-8 frames)
-   - Calculates mean and standard deviation for x, y, z coordinates
-   - Creates 18 features per window
-4. **Prediction**:
-   - Maintains a buffer of 5 consecutive windows
-   - Scales features using the pre-trained scaler
-   - Feeds the sequence to the LSTM model
-   - Returns predictions with confidence scores
-
-## Tips for Better Recognition
-
-1. **Lighting**: Ensure good lighting conditions
-2. **Background**: Use a plain background for better landmark detection
-3. **Distance**: Stay at an appropriate distance from the camera
-4. **Movement**: Perform signs clearly and at a moderate speed
-5. **Framing**: Keep your hands and upper body visible in the frame
-
-## Model Information
-
-The script uses:
-- `app/model/sign_language_recognition.keras`: LSTM model trained on sign language data
-- `app/model/scaler.pkl`: StandardScaler for feature normalization
-- `app/model/label_encoder.pkl`: LabelEncoder for class labels
-- `app/model/feature_order.json`: Ensures features are in the correct order
-
-## System Requirements
+## 🔧 System Requirements
 
 - Python 3.10.12
 - Redis Server
 - Webcam for real-time recognition
 - Modern web browser with JavaScript enabled
 
-## Installation
+## 🛠️ Installation
 
 1. Clone the repository:
 ```bash
@@ -103,7 +111,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Install dependencies:
+3. 📦 Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
@@ -124,16 +132,16 @@ python run.py
 
 The application will be available at `http://localhost:5000`
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 sign-language-recognition/
 ├── app/
-│   ├── model/                    # Trained models and preprocessing files
-│   ├── static/                   # Static files (JS, CSS, images)
-│   ├── templates/                # HTML templates
-│   ├── utils/                    # Utility modules
-│   ├── videos/                   # Stored video files
+│   ├── model/                   # Trained models and preprocessing files
+│   ├── static/                  # Static files (JS, CSS, images)
+│   ├── templates/               # HTML templates
+│   ├── utils/                   # Utility modules
+│   ├── videos/                  # Stored video files
 │   ├── __init__.py              # App initialization
 │   ├── config.py                # Configuration settings
 │   ├── models.py                # Database models
@@ -143,7 +151,7 @@ sign-language-recognition/
 ├── celery_worker.py             # Celery worker configuration
 ├── requirements.txt             # Project dependencies
 ├── run.py                       # Application entry point
-└── train.py                     # Model training script
+└── train.ipynb                  # Model training script
 ```
 
 ## Database Schema
@@ -178,7 +186,7 @@ sign-language-recognition/
 - `/process_video` - Landmark extraction endpoint
 - `/task_status/<task_id>` - Processing status endpoint
 
-## Troubleshooting
+## ⚠️ Troubleshooting
 
 If you encounter issues:
 1. Check that your webcam is working and accessible
