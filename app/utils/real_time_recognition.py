@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Real-time Sign Language Recognition using MediaPipe and LSTM model
+Flask-compatible version for web streaming
 """
 
 import cv2
@@ -12,6 +13,8 @@ from collections import deque
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import warnings
+import threading
+import time
 
 warnings.filterwarnings("ignore")
 
@@ -23,7 +26,7 @@ class RealTimeSignLanguageRecognizer:
         scaler_path="app/model/scaler.pkl",
         label_encoder_path="app/model/label_encoder.pkl",
         feature_order_path="app/model/feature_order.json",
-        cam_id=2,  # Default camera ID
+        cam_id=2,  # Default camera ID (0 for default camera)
     ):
         # Load model and preprocessing tools
         print("Loading model and preprocessing tools...")
@@ -34,30 +37,19 @@ class RealTimeSignLanguageRecognizer:
         with open(feature_order_path, "r") as f:
             self.feature_order = json.load(f)
 
-        # MediaPipe setup
+        # MediaPipe setup - will be initialized when starting
         self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
-
         self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
-
         self.mp_drawing = mp.solutions.drawing_utils
+        self.hands = None
+        self.pose = None
 
         # Parameters
         self.fps = 15  # Target FPS for feature extraction
         self.window_sec = 0.5  # Window size in seconds
         self.window_size = int(self.fps * self.window_sec)  # Frames per window
         self.sequence_length = 5  # Number of windows for LSTM
-        self.CAM_ID = cam_id  # Camera ID (0 for default, 1 for external camera, etc.)
+        self.CAM_ID = cam_id  # Camera ID
 
         # Buffers
         self.frame_buffer = deque(maxlen=self.window_size)
@@ -71,10 +63,96 @@ class RealTimeSignLanguageRecognizer:
         self.frame_count = 0
         self.fps_timer = cv2.getTickCount()
 
+        # Video capture
+        self.cap = None
+        self.is_running = False
+
+        # Current predictions
+        self.current_prediction = None
+        self.top3_predictions = None
+        self.lock = threading.Lock()
+
         print("Initialization complete!")
+
+    def _init_mediapipe(self):
+        """Initialize MediaPipe models"""
+        if self.hands is None:
+            self.hands = self.mp_hands.Hands(
+                static_image_mode=False,
+                max_num_hands=2,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+
+        if self.pose is None:
+            self.pose = self.mp_pose.Pose(
+                static_image_mode=False,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+
+    def _cleanup_mediapipe(self):
+        """Clean up MediaPipe models"""
+        if self.hands:
+            self.hands.close()
+            self.hands = None
+        if self.pose:
+            self.pose.close()
+            self.pose = None
+
+    def start_capture(self):
+        """Start video capture"""
+        try:
+            if self.cap is None or not self.cap.isOpened():
+                # Try different camera indices if default fails
+                for cam_idx in [self.CAM_ID, 0, 1, 2]:
+                    self.cap = cv2.VideoCapture(cam_idx)
+                    if self.cap.isOpened():
+                        print(f"Camera opened successfully at index {cam_idx}")
+                        break
+                else:
+                    print("Failed to open any camera")
+                    return False
+
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            # Initialize MediaPipe
+            self._init_mediapipe()
+
+            # Clear buffers
+            self.frame_buffer.clear()
+            self.feature_buffer.clear()
+
+            self.is_running = True
+            return True
+        except Exception as e:
+            print(f"Error starting capture: {e}")
+            return False
+
+    def stop_capture(self):
+        """Stop video capture and release resources"""
+        self.is_running = False
+
+        # Clean up MediaPipe
+        self._cleanup_mediapipe()
+
+        # Release camera
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+
+        # Clear predictions
+        with self.lock:
+            self.current_prediction = None
+            self.top3_predictions = None
 
     def extract_landmarks_from_frame(self, frame):
         """Extract hand and pose landmarks from a single frame"""
+        if self.hands is None or self.pose is None:
+            return {"hand_0": [], "hand_1": [], "pose": []}, None, None
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Process with MediaPipe
@@ -82,8 +160,8 @@ class RealTimeSignLanguageRecognizer:
         pose_results = self.pose.process(frame_rgb)
 
         landmarks = {
-            "hand_0": [],  # First detected hand (could be left or right)
-            "hand_1": [],  # Second detected hand (could be left or right)
+            "hand_0": [],  # First detected hand
+            "hand_1": [],  # Second detected hand
             "pose": [],
         }
 
@@ -184,7 +262,7 @@ class RealTimeSignLanguageRecognizer:
     def draw_landmarks(self, frame, hands_results, pose_results):
         """Draw MediaPipe landmarks on frame"""
         # Draw hand landmarks
-        if hands_results.multi_hand_landmarks:
+        if hands_results and hands_results.multi_hand_landmarks:
             for hand_landmarks in hands_results.multi_hand_landmarks:
                 self.mp_drawing.draw_landmarks(
                     frame,
@@ -197,7 +275,7 @@ class RealTimeSignLanguageRecognizer:
                 )
 
         # Draw pose landmarks
-        if pose_results.pose_landmarks:
+        if pose_results and pose_results.pose_landmarks:
             # Only draw the joints we use
             for idx in self.pose_joints:
                 lm = pose_results.pose_landmarks.landmark[idx]
@@ -207,131 +285,135 @@ class RealTimeSignLanguageRecognizer:
 
         return frame
 
-    def run(self):
-        """Main loop for real-time recognition"""
-        cap = cv2.VideoCapture(self.CAM_ID)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-        print("\nStarting real-time sign language recognition...")
-        print("Press 'q' to quit\n")
-
-        frame_skip = max(1, int(cap.get(cv2.CAP_PROP_FPS) / self.fps))
-        frame_counter = 0
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            frame_counter += 1
-
-            # Skip frames to match target FPS
-            if frame_counter % frame_skip != 0:
-                continue
-
-            # Don't mirror the frame - process as-is to match training data
-            # frame = cv2.flip(frame, 1)
-
-            # Extract landmarks
-            landmarks, hands_results, pose_results = self.extract_landmarks_from_frame(
-                frame
+    def get_frame(self):
+        """Get a single processed frame for streaming"""
+        if not self.is_running:
+            # Return a placeholder frame when not running
+            placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(
+                placeholder,
+                "Camera Stopped",
+                (200, 240),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 255, 255),
+                2,
             )
+            return placeholder
 
-            # Add to buffer
-            self.frame_buffer.append(landmarks)
-
-            # Extract features when window is full
-            if len(self.frame_buffer) == self.window_size:
-                features = self.extract_window_features(list(self.frame_buffer))
-                self.feature_buffer.append(features)
-                self.frame_buffer.clear()
-
-            # Make prediction
-            predicted_label, top3 = self.predict()
-
-            # Draw landmarks
-            frame = self.draw_landmarks(frame, hands_results, pose_results)
-
-            # Display prediction on frame
-            if predicted_label:
-                # Main prediction
+        if not self.cap or not self.cap.isOpened():
+            # Try to restart capture
+            if not self.start_capture():
+                # Return error frame
+                error_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                 cv2.putText(
-                    frame,
-                    f"Prediction: {predicted_label}",
-                    (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 255, 0),
-                    2,
-                )
-
-                # Top 3 predictions
-                y_offset = 60
-                for i, (label, conf) in enumerate(top3):
-                    text = f"{i + 1}. {label}: {conf:.1f}%"
-                    cv2.putText(
-                        frame,
-                        text,
-                        (10, y_offset + i * 25),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (255, 255, 255),
-                        1,
-                    )
-
-                # Print to terminal
-                print(
-                    f"\rPredicted: {predicted_label} | Top 3: "
-                    + " | ".join([f"{l}: {c:.1f}%" for l, c in top3]),
-                    end="",
-                    flush=True,
-                )
-            else:
-                cv2.putText(
-                    frame,
-                    "Collecting frames...",
-                    (10, 30),
+                    error_frame,
+                    "Camera Error",
+                    (220, 240),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,
                     (0, 0, 255),
                     2,
                 )
+                return error_frame
 
-            # Calculate and display FPS
-            self.frame_count += 1
-            if self.frame_count % 30 == 0:
-                current_time = cv2.getTickCount()
-                fps = 30 / ((current_time - self.fps_timer) / cv2.getTickFrequency())
-                self.fps_timer = current_time
+        ret, frame = self.cap.read()
+        if not ret:
+            return None
+
+        # Extract landmarks
+        landmarks, hands_results, pose_results = self.extract_landmarks_from_frame(
+            frame
+        )
+
+        # Add to buffer
+        self.frame_buffer.append(landmarks)
+
+        # Extract features when window is full
+        if len(self.frame_buffer) == self.window_size:
+            features = self.extract_window_features(list(self.frame_buffer))
+            self.feature_buffer.append(features)
+            self.frame_buffer.clear()
+
+        # Make prediction
+        predicted_label, top3 = self.predict()
+
+        # Update current predictions
+        with self.lock:
+            self.current_prediction = predicted_label
+            self.top3_predictions = top3
+
+        # Draw landmarks
+        frame = self.draw_landmarks(frame, hands_results, pose_results)
+
+        # Display prediction on frame
+        if predicted_label:
+            # Main prediction
+            cv2.putText(
+                frame,
+                f"Prediction: {predicted_label}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2,
+            )
+
+            # Top 3 predictions
+            y_offset = 60
+            for i, (label, conf) in enumerate(top3):
+                text = f"{i + 1}. {label}: {conf:.1f}%"
                 cv2.putText(
                     frame,
-                    f"FPS: {fps:.1f}",
-                    (540, 30),
+                    text,
+                    (10, y_offset + i * 25),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (255, 255, 0),
-                    2,
+                    0.6,
+                    (255, 255, 255),
+                    1,
                 )
+        else:
+            cv2.putText(
+                frame,
+                "Collecting frames...",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+            )
 
-            # Show frame
-            cv2.imshow("Sign Language Recognition", frame)
+        # Calculate and display FPS
+        self.frame_count += 1
+        if self.frame_count % 30 == 0:
+            current_time = cv2.getTickCount()
+            fps = 30 / ((current_time - self.fps_timer) / cv2.getTickFrequency())
+            self.fps_timer = current_time
+            cv2.putText(
+                frame,
+                f"FPS: {fps:.1f}",
+                (540, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 0),
+                2,
+            )
 
-            # Check for quit
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+        return frame
 
-        print("\n\nClosing...")
-        cap.release()
-        cv2.destroyAllWindows()
-        self.hands.close()
-        self.pose.close()
+    def get_current_predictions(self):
+        """Get current predictions thread-safely"""
+        with self.lock:
+            return self.current_prediction, self.top3_predictions
 
 
-def main():
-    recognizer = RealTimeSignLanguageRecognizer()
-    recognizer.run()
+# Global instance
+recognizer = None
 
 
-if __name__ == "__main__":
-    main()
+def get_recognizer():
+    """Get or create the global recognizer instance"""
+    global recognizer
+    if recognizer is None:
+        recognizer = RealTimeSignLanguageRecognizer()
+    return recognizer

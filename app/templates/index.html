@@ -1,5 +1,275 @@
 {% extends 'base.html' %}
 {% block content %}
-        <h1>Dashboard</h1>
-        <p>Welcome!.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Real-Time Sign Language Recognition</h1>
+    
+    <div class="row">
+        <!-- Video Feed Column -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Live Camera Feed</h5>
+                </div>
+                <div class="card-body text-center">
+                    <img id="videoFeed" src="{{ url_for('video_feed') }}" class="img-fluid rounded" 
+                         style="max-height: 480px; width: 100%; object-fit: contain; border: 2px solid #dee2e6;">
+                    <div class="mt-3">
+                        <button id="toggleBtn" class="btn btn-success" onclick="toggleRecognition()" disabled>
+                            <i class='bx bx-play-circle'></i> Loading...
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Predictions Column -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recognition Results</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Current Prediction -->
+                    <div class="mb-4">
+                        <h6 class="text-muted">Current Prediction</h6>
+                        <div id="currentPrediction" class="alert alert-info text-center py-3">
+                            <h3 class="mb-0">Waiting...</h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Top 3 Predictions -->
+                    <div>
+                        <h6 class="text-muted mb-3">Top 3 Predictions</h6>
+                        <div id="top3Predictions">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>1. <span class="prediction-label">-</span></span>
+                                    <span class="badge bg-primary confidence-badge">0%</span>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>2. <span class="prediction-label">-</span></span>
+                                    <span class="badge bg-secondary confidence-badge">0%</span>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>3. <span class="prediction-label">-</span></span>
+                                    <span class="badge bg-info confidence-badge">0%</span>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Instructions Card -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Position yourself in front of the camera</li>
+                        <li>Ensure good lighting conditions</li>
+                        <li>Keep your hands and upper body visible</li>
+                        <li>Perform signs clearly at moderate speed</li>
+                        <li>The system needs ~2.5 seconds of video to make predictions</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .alert-info {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-color: rgba(13, 110, 253, 0.2);
+        color: #0d6efd;
+    }
+    
+    body.dark .alert-info {
+        background-color: rgba(13, 110, 253, 0.2);
+        border-color: rgba(13, 110, 253, 0.3);
+        color: #6ea8fe;
+    }
+    
+    .progress {
+        background-color: rgba(0, 0, 0, 0.1);
+    }
+    
+    body.dark .progress {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+</style>
+
+<script>
+    let isRunning = false;
+    let predictionInterval;
+    let isToggling = false;
+    
+    function updateButtonState() {
+        const btn = document.getElementById('toggleBtn');
+        btn.disabled = false;
+        
+        if (isRunning) {
+            btn.innerHTML = '<i class="bx bx-stop-circle"></i> Stop Recognition';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-danger');
+        } else {
+            btn.innerHTML = '<i class="bx bx-play-circle"></i> Start Recognition';
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-success');
+        }
+    }
+    
+    function toggleRecognition() {
+        if (isToggling) return;
+        
+        isToggling = true;
+        const btn = document.getElementById('toggleBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Processing...';
+        
+        const action = isRunning ? 'stop' : 'start';
+        
+        fetch('/toggle_recognition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: action })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isRunning = !isRunning;
+                updateButtonState();
+                
+                if (isRunning) {
+                    startPredictionUpdates();
+                } else {
+                    stopPredictionUpdates();
+                }
+            } else {
+                alert('Failed to ' + action + ' camera: ' + (data.message || 'Unknown error'));
+                updateButtonState();
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling recognition:', error);
+            alert('Error: ' + error.message);
+            updateButtonState();
+        })
+        .finally(() => {
+            isToggling = false;
+        });
+    }
+    
+    function updatePredictions() {
+        fetch('/current_predictions')
+            .then(response => response.json())
+            .then(data => {
+                const currentPredDiv = document.getElementById('currentPrediction');
+                
+                if (data.status === 'waiting') {
+                    currentPredDiv.innerHTML = '<h3 class="mb-0">Collecting frames...</h3>';
+                    // Reset top 3 predictions
+                    updateTop3Display([]);
+                } else if (data.status === 'success') {
+                    currentPredDiv.innerHTML = `<h3 class="mb-0">${data.current_prediction}</h3>`;
+                    updateTop3Display(data.top3);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching predictions:', error);
+            });
+    }
+    
+    function updateTop3Display(predictions) {
+        const container = document.getElementById('top3Predictions');
+        const predictionDivs = container.querySelectorAll('.mb-3');
+        
+        predictions.forEach((pred, index) => {
+            if (index < 3) {
+                const div = predictionDivs[index];
+                const label = div.querySelector('.prediction-label');
+                const badge = div.querySelector('.confidence-badge');
+                const progressBar = div.querySelector('.progress-bar');
+                
+                label.textContent = pred.label;
+                badge.textContent = `${pred.confidence.toFixed(1)}%`;
+                progressBar.style.width = `${pred.confidence}%`;
+            }
+        });
+        
+        // Clear remaining slots if less than 3 predictions
+        for (let i = predictions.length; i < 3; i++) {
+            const div = predictionDivs[i];
+            const label = div.querySelector('.prediction-label');
+            const badge = div.querySelector('.confidence-badge');
+            const progressBar = div.querySelector('.progress-bar');
+            
+            label.textContent = '-';
+            badge.textContent = '0%';
+            progressBar.style.width = '0%';
+        }
+    }
+    
+    function startPredictionUpdates() {
+        // Update predictions every 500ms
+        predictionInterval = setInterval(updatePredictions, 500);
+        updatePredictions(); // Initial update
+    }
+    
+    function stopPredictionUpdates() {
+        if (predictionInterval) {
+            clearInterval(predictionInterval);
+            predictionInterval = null;
+        }
+        // Clear display
+        document.getElementById('currentPrediction').innerHTML = '<h3 class="mb-0">Stopped</h3>';
+        updateTop3Display([]);
+    }
+    
+    function checkInitialStatus() {
+        fetch('/recognition_status')
+            .then(response => response.json())
+            .then(data => {
+                isRunning = data.is_running;
+                updateButtonState();
+                
+                if (isRunning) {
+                    startPredictionUpdates();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking status:', error);
+                updateButtonState();
+            });
+    }
+    
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        checkInitialStatus();
+    });
+    
+    // Clean up when page unloads
+    window.addEventListener('beforeunload', function() {
+        if (predictionInterval) {
+            clearInterval(predictionInterval);
+        }
+    });
+</script>
 {% endblock %}

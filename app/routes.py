@@ -8,18 +8,97 @@ from flask import (
     send_from_directory,
     url_for,
     current_app as app,
+    Response,
 )
 from celery.result import AsyncResult
+import cv2
 
 from app import db
 from app.models import Video, FrameLandmark  # DB Models
 from app.tasks import process_video_landmarks, celery
 from app.config import VIDEO_DIR
+from app.utils.real_time_recognition import get_recognizer
 
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+# --- Video Streaming for Real-Time Recognition ---
+def generate_frames():
+    """Generate frames for video streaming"""
+    recognizer = get_recognizer()
+    
+    while True:
+        frame = recognizer.get_frame()
+        if frame is None:
+            # Send a black frame if no frame available
+            frame = recognizer.get_frame()  # Will return placeholder
+            
+        # Encode frame as JPEG
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
+        
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+
+@app.route('/video_feed')
+def video_feed():
+    """Video streaming route"""
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/current_predictions')
+def current_predictions():
+    """Get current predictions as JSON"""
+    recognizer = get_recognizer()
+    current, top3 = recognizer.get_current_predictions()
+    
+    if current is None:
+        return jsonify({
+            'status': 'waiting',
+            'message': 'Collecting frames...'
+        })
+    
+    return jsonify({
+        'status': 'success',
+        'current_prediction': current,
+        'top3': [
+            {'label': label, 'confidence': float(conf)}
+            for label, conf in top3
+        ]
+    })
+
+
+@app.route('/toggle_recognition', methods=['POST'])
+def toggle_recognition():
+    """Start or stop recognition"""
+    action = request.json.get('action', 'start')
+    recognizer = get_recognizer()
+    
+    if action == 'start':
+        success = recognizer.start_capture()
+        if success:
+            return jsonify({'status': 'started', 'success': True})
+        else:
+            return jsonify({'status': 'error', 'success': False, 'message': 'Failed to start camera'})
+    else:
+        recognizer.stop_capture()
+        return jsonify({'status': 'stopped', 'success': True})
+
+
+@app.route('/recognition_status')
+def recognition_status():
+    """Get current recognition status"""
+    recognizer = get_recognizer()
+    return jsonify({
+        'is_running': recognizer.is_running
+    })
 
 
 # --- Helper for saving videos to DB and filesystem ---
