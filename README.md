@@ -3,7 +3,7 @@
 A real-time sign language recognition system built with Flask, MediaPipe, and deep learning. The system can recognize `word-level` sign language gestures in real-time through a web interface, as well as manage a dataset of sign language videos for training.
 
 ## 📸 Demo
-![demo-gif](demo/demo.gif)  
+![demo-gif](app/static/img/test.gif)  
 > Real-time webcam feed with live sign prediction.
 
 ## ▶️ Inference
