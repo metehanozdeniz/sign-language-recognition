@@ -12,6 +12,10 @@ python real_time_inference.py
 ```
 > You should edit it according to the camera id on your device. cam_id = your_cam_id
 
+## Dataset
+
+[Kaggle](https://www.kaggle.com/datasets/metehanzdeniz/sign-language-recognition/data)
+
 ## Features
 
 - **Real-time Recognition**: Live sign language gesture recognition through webcam
